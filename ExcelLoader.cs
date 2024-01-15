@@ -10,9 +10,11 @@ namespace excel2json {
     class ExcelLoader {
         private DataSet mData;
 
+        public string FilePath { get; set; }
         // TODO: add Sheet Struct Define
 
         public ExcelLoader(string filePath, int headerRow) {
+            FilePath = filePath;
             using (var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)) {
                 // Auto-detect format, supports:
                 //  - Binary Excel files (2.0-2003 format; *.xls)

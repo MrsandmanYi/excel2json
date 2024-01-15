@@ -14,19 +14,21 @@ namespace excel2json
     {
         string mContext = "";
         int mHeaderRows = 0;
-
+        
         public string context {
             get {
                 return mContext;
             }
         }
 
+        ExcelLoader loader;
         /// <summary>
         /// 构造函数：完成内部数据创建
         /// </summary>
         /// <param name="excel">ExcelLoader Object</param>
         public JsonExporter(ExcelLoader excel, bool lowcase, bool exportArray, string dateFormat, bool forceSheetName, int headerRows, string excludePrefix, bool cellJson, bool allString)
         {
+            loader = excel;
             mHeaderRows = headerRows - 1;
             List<DataTable> validSheets = new List<DataTable>();
             for (int i = 0; i < excel.Sheets.Count; i++)
@@ -101,24 +103,63 @@ namespace excel2json
         /// </summary>
         private object convertSheetToDict(DataTable sheet, bool lowcase, string excludePrefix, bool cellJson, bool allString)
         {
-            Dictionary<string, object> importData =
-                new Dictionary<string, object>();
 
-            int firstDataRow = mHeaderRows;
-            for (int i = firstDataRow; i < sheet.Rows.Count; i++)
+            bool isTwoKey= sheet.Columns[1].ToString().Trim() == "sub_id";
+
+            if (isTwoKey)
             {
-                DataRow row = sheet.Rows[i];
-                string ID = row[sheet.Columns[0]].ToString();
-                if (ID.Length <= 0)
-                    ID = string.Format("row_{0}", i);
+                Dictionary<string, Dictionary<string, object>> importData = new Dictionary<string, Dictionary<string, object>>();
+                int firstDataRow = mHeaderRows;
+                for (int i = firstDataRow; i < sheet.Rows.Count; i++)
+                {
+                    DataRow row = sheet.Rows[i];
+                    string ID = row[sheet.Columns[0]].ToString();
+                    if (ID.Length <= 0)
+                        ID = string.Format("row_{0}", i);
 
-                var rowObject = convertRowToDict(sheet, row, lowcase, firstDataRow, excludePrefix, cellJson, allString);
-                // 多余的字段
-                // rowObject[ID] = ID;
-                importData[ID] = rowObject;
+                    string SubID = row[sheet.Columns[1]].ToString();
+                    if (SubID.Length <= 0)
+                        SubID = string.Format("sub_row_{0}", i);
+
+                    var rowObject = convertRowToDict(sheet, row, lowcase, firstDataRow, excludePrefix, cellJson, allString);
+                    if (!importData.ContainsKey(ID))
+                    {
+                        importData[ID] = new Dictionary<string, object>();
+                    }
+
+                    var dataMap = importData[ID];
+                    if (!dataMap.ContainsKey(SubID))
+                    {
+                        dataMap[SubID] = rowObject;
+                    }
+                    else
+                    {
+                        Console.WriteLine(string.Format("{0}：子ID重复 Row:{1}",loader.FilePath,i));
+                    }
+                }
+                return importData;
             }
+            else
+            {
+                Dictionary<string, object> importData =
+                    new Dictionary<string, object>();
 
-            return importData;
+                int firstDataRow = mHeaderRows;
+                for (int i = firstDataRow; i < sheet.Rows.Count; i++)
+                {
+                    DataRow row = sheet.Rows[i];
+                    string ID = row[sheet.Columns[0]].ToString();
+                    if (ID.Length <= 0)
+                        ID = string.Format("row_{0}", i);
+
+                    var rowObject = convertRowToDict(sheet, row, lowcase, firstDataRow, excludePrefix, cellJson, allString);
+                    // 多余的字段
+                    // rowObject[ID] = ID;
+                    importData[ID] = rowObject;
+                }
+
+                return importData;
+            }
         }
 
         /// <summary>
