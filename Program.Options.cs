@@ -80,7 +80,7 @@ namespace excel2json
                 set;
             }
 
-            [Option('l', "cell_json", Required = false, DefaultValue = false, HelpText = "convert json string in cell")]
+            [Option('m', "cell_json", Required = false, DefaultValue = false, HelpText = "convert json string in cell")]
             public bool CellJson {
                 get;
                 set;
