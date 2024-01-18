@@ -27,25 +27,22 @@ namespace excel2json
             }
         }
 
+        private string excelName;
+
         public CSDefineGenerator(string excelName, ExcelLoader excel, string excludePrefix)
         {
+            this.excelName = excelName;
             //-- 创建代码字符串
             StringBuilder sb = new StringBuilder();
-            sb.AppendLine("//");
-            sb.AppendLine("// Auto Generated Code By excel2json");
-            sb.AppendLine("// https://neil3d.gitee.io/coding/excel2json.html");
-            sb.AppendLine("// 1. 每个 Sheet 形成一个 Struct 定义, Sheet 的名称作为 Struct 的名称");
-            sb.AppendLine("// 2. 表格约定：第一行是变量名称，第二行是变量类型");
-            sb.AppendLine();
             sb.AppendFormat("// Generate From {0}.xlsx", excelName);
             sb.AppendLine();
             sb.AppendLine();
 
-            for (int i = 0; i < excel.Sheets.Count; i++)
-            {
-                DataTable sheet = excel.Sheets[i];
+            //for (int i = 0; i < excel.Sheets.Count; i++)
+            //{
+                DataTable sheet = excel.Sheets[0];
                 sb.Append(_exportSheet(sheet, excludePrefix));
-            }
+            //}
 
             sb.AppendLine();
             sb.AppendLine("// End of Auto Generated Code");
@@ -66,9 +63,11 @@ namespace excel2json
             List<FieldDef> fieldList = new List<FieldDef>();
             DataRow typeRow = sheet.Rows[0];
             DataRow commentRow = sheet.Rows[1];
+            DataRow firstElementRow = sheet.Rows[2];
 
-            foreach (DataColumn column in sheet.Columns)
+            for(int i = 0; i < sheet.Columns.Count; i++)
             {
+                DataColumn column = sheet.Columns[i];
                 // 过滤掉包含指定前缀的列
                 string columnName = column.ToString();
                 if (excludePrefix.Length > 0 && columnName.StartsWith(excludePrefix))
@@ -76,7 +75,18 @@ namespace excel2json
 
                 FieldDef field;
                 field.name = column.ToString();
-                field.type = typeRow[column].ToString();
+                if (i == 0)
+                {
+                    field.type = "int";
+                }
+                else if (i == 1 && field.name == "sub_id")
+                {
+                    field.type = "int";
+                }
+                else
+                {
+                    field.type = typeRow[column].ToString();
+                }
                 field.comment = commentRow[column].ToString();
 
                 fieldList.Add(field);
@@ -84,7 +94,7 @@ namespace excel2json
 
             // export as string
             StringBuilder sb = new StringBuilder();
-            sb.AppendFormat("public class {0}\r\n{{", sheet.TableName);
+            sb.AppendFormat("public class {0}\r\n{{", excelName);
             sb.AppendLine();
 
             foreach (FieldDef field in fieldList)
