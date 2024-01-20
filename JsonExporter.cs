@@ -21,6 +21,8 @@ namespace excel2json
             }
         }
 
+        public bool isDoubleKey = false;
+
         ExcelLoader loader;
         /// <summary>
         /// 构造函数：完成内部数据创建
@@ -105,6 +107,7 @@ namespace excel2json
         {
 
             bool isTwoKey= sheet.Columns[1].ToString().Trim() == "sub_id";
+            this.isDoubleKey = isTwoKey;
 
             if (isTwoKey)
             {

@@ -3,10 +3,19 @@ using System.IO;
 using System.Data;
 using System.Text;
 using System.Windows.Forms;
+using System.Collections.Generic;
+using System.Runtime.Remoting.Contexts;
 
 
 namespace excel2json
 {
+
+    public class ConfigParams
+    {
+        public string clsName = "";
+        public bool isDoubleKey = false;
+    }
+
     /// <summary>
     /// 应用程序
     /// </summary>
@@ -65,10 +74,86 @@ namespace excel2json
         /// <param name="options">命令行参数</param>
         private static void Run(Options options)
         {
-
-            //-- Excel File 
             string excelPath = options.ExcelPath;
-            string excelName = Path.GetFileNameWithoutExtension(options.ExcelPath);
+
+            if (options.ExportMode == 0) //-- Excel File 
+            {
+                ExportExcel(options, excelPath);
+            }
+            else if (options.ExportMode == 1) //-- Excel Folder 
+            {
+                // 获取文件夹下所有的Excel文件，包括子文件夹下的
+                string[] files = Directory.GetFiles(excelPath, "*.xlsx", SearchOption.AllDirectories);
+                List<ConfigParams> configParamsList = new List<ConfigParams>();
+                foreach (string file in files)
+                {
+                    configParamsList.Add(ExportExcel(options, file));
+                }
+                // 生成ClassConfig
+
+                try
+                {
+                    StringBuilder sb = new StringBuilder();
+                    sb.AppendLine("using System;");
+                    sb.AppendLine("using System.Collections.Generic;");
+                    sb.AppendLine();
+                    sb.AppendLine("namespace GameConfigClass");
+                    sb.AppendLine("{");
+                    sb.AppendLine("\tpublic class ConfigClassStruct");
+                    sb.AppendLine("\t{");
+                    sb.AppendLine("\t\tpublic string name;");
+                    sb.AppendLine("\t\tpublic Func<string,object> jConvertMethod;");
+                    sb.AppendLine("\t\tpublic bool doubleKey;");
+                    sb.AppendLine("\t}");
+                    sb.AppendLine();
+
+                    sb.AppendLine("\tpublic static class ExcelClassConfig");
+                    sb.AppendLine("\t{");
+                    sb.AppendLine("\t\tpublic static Dictionary<string, ConfigClassStruct> configClassMap = new Dictionary<string, ConfigClassStruct>()");
+                    sb.AppendLine("\t\t{");
+                    foreach (ConfigParams cp in configParamsList)
+                    {
+                        sb.AppendLine($"\t\t\t{{\"{cp.clsName}\", new ConfigClassStruct(){{");
+                        sb.AppendLine($"\t\t\t\tname = \"{cp.clsName}\",");
+                        sb.AppendLine("\t\t\t\tjConvertMethod = (json) => {{");
+                        if (cp.isDoubleKey)
+                        {
+                            sb.AppendLine(string.Format("\t\t\t\t\tvar data = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<int, Dictionary<int, {0}>>>(json);", cp.clsName));
+                        }
+                        else
+                        {
+                            sb.AppendLine($"\t\t\t\t\tvar data = Newtonsoft.Json.JsonConvert.DeserializeObject<Dictionary<int, {cp.clsName}>>(json);");
+                        }
+                        sb.AppendLine("\t\t\t\t\treturn data;");
+                        sb.AppendLine("\t\t\t\t}},");
+                        sb.AppendLine(string.Format("\t\t\t\tdoubleKey = {0},", cp.isDoubleKey ? "true" : "false"));
+                        sb.AppendLine("\t\t\t\t}");
+                        sb.AppendLine("\t\t\t},");  
+                    }
+                    sb.AppendLine("\t\t};");
+                    sb.AppendLine("\t}");
+                    sb.AppendLine("}");
+                    sb.AppendLine();
+
+                    string classConfigPath = Path.Combine(options.ClsConfigPath, "ExcelClassConfig.cs");
+                    Console.WriteLine("ClassConfigPath: " + classConfigPath);
+                    // 保存配置文件
+                    File.WriteAllText(classConfigPath, sb.ToString(), new UTF8Encoding(false));
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Error: 导出ClassConfigPath失败!!!");
+                    Console.WriteLine(e);
+                    throw;
+                }
+            }
+        }
+
+        private static ConfigParams ExportExcel(Options options, string excelPath)
+        {
+            ConfigParams configParams = new ConfigParams();
+
+            string excelName = Path.GetFileNameWithoutExtension(excelPath);
 
             //-- Header
             int header = options.HeaderRows;
@@ -95,7 +180,14 @@ namespace excel2json
             string exportPath;
             if (options.JsonPath != null && options.JsonPath.Length > 0)
             {
-                exportPath = options.JsonPath;
+                if (options.ExportMode == 1)
+                {
+                    exportPath = Path.Combine(options.JsonPath, excelName + ".json");
+                }
+                else
+                {
+                    exportPath = options.JsonPath;
+                }
             }
             else
             {
@@ -112,9 +204,18 @@ namespace excel2json
             //-- 生成C#定义文件
             if (options.CSharpPath != null && options.CSharpPath.Length > 0)
             {
+                var cSharpPath = options.CSharpPath;
+                if (options.ExportMode == 1)
+                {
+                    cSharpPath = Path.Combine(options.CSharpPath, excelName + ".cs");
+                }
+
                 CSDefineGenerator generator = new CSDefineGenerator(excelName, excel, options.ExcludePrefix);
-                generator.SaveToFile(options.CSharpPath, cd);
+                generator.SaveToFile(cSharpPath, cd);
             }
+            configParams.clsName = excelName;
+            configParams.isDoubleKey = exporter.isDoubleKey;
+            return configParams;
         }
     }
 }

@@ -18,6 +18,7 @@ namespace excel2json
                 this.Lowcase = false;
                 this.ExportArray = false;
                 this.ForceSheetName = false;
+                this.ExportMode = 0;
             }
 
             [Option('e', "excel", Required = true, HelpText = "input excel file path.")]
@@ -38,8 +39,21 @@ namespace excel2json
                 set;
             }
 
+            [Option('g', "clsConfig", Required = false, HelpText = "export Class Config")]
+            public string ClsConfigPath
+            {
+                get;
+                set;
+            }
+
             [Option('h', "header", Required = false, DefaultValue = 1, HelpText = "number lines in sheet as header.")]
             public int HeaderRows {
+                get;
+                set;
+            }
+            [Option('o', "mode", Required = false, DefaultValue = 0, HelpText = "1 : 导出路径下所有的Excel文件 0: 单个文件")]
+            public int ExportMode
+            {
                 get;
                 set;
             }
